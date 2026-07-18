@@ -26,6 +26,9 @@
 *.zip
 /.claude-flow
 
+# claude code local settings (records approved commands, can contain secrets)
+.claude/settings.local.json
+
 # debug
 npm-debug.log*
 yarn-debug.log*

@@ -15,11 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://vastos.in"),
   title: {
-    default: "VASTOS | Engineering Tomorrow's Intelligent Businesses",
+    default: "VASTOS — Software for real estate, design, and construction teams",
     template: "%s | VASTOS",
   },
   description:
-    "VASTOS builds intelligent software, AI systems, immersive experiences, and enterprise platforms for ambitious businesses.",
+    "VASTOS builds a real estate and construction CRM, an Unreal Engine interior visualisation platform, and an AI studio that turns floor plans into renders.",
   alternates: {
     canonical: "/",
   },
@@ -27,23 +27,23 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://vastos.in",
     siteName: "VASTOS",
-    title: "Engineering Tomorrow's Intelligent Businesses",
+    title: "Software for real estate, design, and construction teams",
     description:
-      "Intelligent software, AI systems, immersive experiences, and enterprise platforms built for ambitious businesses.",
+      "A real estate and construction CRM, an Unreal Engine interior visualisation platform, and an AI studio that turns floor plans into renders.",
     images: [
       {
         url: "/media/vastos-hero-poster.jpg",
         width: 1920,
         height: 1080,
-        alt: "A city tower transforming into an intelligent digital system",
+        alt: "A VASTOS interior visualisation rendered from a floor plan",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "VASTOS | Engineering Tomorrow's Intelligent Businesses",
+    title: "VASTOS — Software for real estate, design, and construction teams",
     description:
-      "Intelligent software, AI systems, immersive experiences, and enterprise platforms.",
+      "A real estate and construction CRM, an Unreal Engine visualisation platform, and an AI design studio.",
     images: ["/media/vastos-hero-poster.jpg"],
   },
   icons: {

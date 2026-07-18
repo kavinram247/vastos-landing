@@ -12,6 +12,28 @@ interface FormStatus {
   state: "idle" | "submitting" | "success" | "error";
   message?: string;
   fieldErrors?: FieldErrors;
+  mailto?: string;
+}
+
+const CONTACT_EMAIL = "team@vastos.in";
+
+// Used when the API is unreachable or errors out, so a visitor never loses what
+// they typed. Opens their mail client with the brief already filled in.
+function buildMailto(formData: FormData) {
+  const value = (field: string) => String(formData.get(field) ?? "").trim();
+  const company = value("company");
+
+  const subject = `Project enquiry from ${value("name") || "the website"}`;
+  const body = [
+    `Name: ${value("name")}`,
+    `Email: ${value("email")}`,
+    `Company: ${company || "Not provided"}`,
+    "",
+    "Project:",
+    value("brief"),
+  ].join("\n");
+
+  return `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 export function ProjectForm() {
@@ -58,6 +80,9 @@ export function ProjectForm() {
           state: "error",
           message: result.message || "Something went wrong. Please try again.",
           fieldErrors: result.fieldErrors,
+          // Validation errors are the visitor's to fix, so only offer the email
+          // fallback when the failure came from our side.
+          mailto: result.fieldErrors ? undefined : buildMailto(formData),
         });
         return;
       }
@@ -73,8 +98,8 @@ export function ProjectForm() {
     } catch {
       setStatus({
         state: "error",
-        message:
-          "We could not send your enquiry. Please email team@vastos.in.",
+        message: "We could not send your enquiry from here.",
+        mailto: buildMailto(formData),
       });
     }
   }
@@ -242,6 +267,14 @@ export function ProjectForm() {
           aria-live="polite"
         >
           {status.message}
+          {status.mailto && (
+            <>
+              {" "}
+              <a className="form-status-fallback" href={status.mailto}>
+                Send it by email instead
+              </a>
+            </>
+          )}
         </p>
       </div>
     </form>

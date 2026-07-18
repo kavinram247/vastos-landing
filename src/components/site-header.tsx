@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { List, X } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const navigation = [
   { label: "Products", href: "#products" },
@@ -11,6 +11,39 @@ const navigation = [
 
 export function SiteHeader() {
   const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const { body } = document;
+    const previousOverflow = body.style.overflow;
+    const previousPaddingRight = body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+    body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) body.style.paddingRight = `${scrollbarWidth}px`;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpen(false);
+    };
+
+    // The menu only exists below 768px, so a resize past that breakpoint has to
+    // release the lock or the desktop layout is left unscrollable.
+    const desktop = window.matchMedia("(min-width: 768px)");
+    const closeOnDesktop = (event: MediaQueryListEvent) => {
+      if (event.matches) setIsOpen(false);
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+    desktop.addEventListener("change", closeOnDesktop);
+
+    return () => {
+      body.style.overflow = previousOverflow;
+      body.style.paddingRight = previousPaddingRight;
+      window.removeEventListener("keydown", closeOnEscape);
+      desktop.removeEventListener("change", closeOnDesktop);
+    };
+  }, [isOpen]);
 
   const closeMenu = () => setIsOpen(false);
 
@@ -36,7 +69,7 @@ export function SiteHeader() {
       </nav>
 
       <a className="header-cta" href="#start-project">
-        Start a Project
+        Start a project
       </a>
 
       <button
@@ -47,7 +80,11 @@ export function SiteHeader() {
         aria-label={isOpen ? "Close navigation" : "Open navigation"}
         onClick={() => setIsOpen((current) => !current)}
       >
-        {isOpen ? <X size={22} weight="regular" /> : <List size={22} weight="regular" />}
+        {isOpen ? (
+          <X size={22} weight="regular" aria-hidden="true" />
+        ) : (
+          <List size={22} weight="regular" aria-hidden="true" />
+        )}
       </button>
 
       <div
@@ -55,6 +92,7 @@ export function SiteHeader() {
         className="mobile-menu"
         data-open={isOpen}
         aria-hidden={!isOpen}
+        inert={!isOpen}
       >
         <nav aria-label="Mobile navigation">
           {navigation.map((item) => (
@@ -62,8 +100,12 @@ export function SiteHeader() {
               {item.label}
             </a>
           ))}
-          <a className="mobile-menu-cta" href="#start-project" onClick={closeMenu}>
-            Start a Project
+          <a
+            className="mobile-menu-cta"
+            href="#start-project"
+            onClick={closeMenu}
+          >
+            Start a project
           </a>
         </nav>
       </div>

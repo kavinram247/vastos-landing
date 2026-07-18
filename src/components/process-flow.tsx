@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useEffect, useRef, useState } from "react";
 
 interface ProcessStep {
   name: string;
@@ -10,8 +8,17 @@ interface ProcessStep {
   icon: string;
 }
 
+const THRESHOLD = 0.18;
+
 function ProcessIcon({ name }: { name: string }) {
-  const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const common = {
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.6,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
   return (
     <svg viewBox="0 0 48 48" aria-hidden="true">
       {name === "ear" && <><path {...common} d="M29 31c0 5-3 8-7 8-3 0-5-2-5-5 0-5 7-5 7-11 0-3-2-5-5-5-4 0-7 3-7 8"/><path {...common} d="M33 32c2-3 3-6 3-10 0-8-5-13-13-13-6 0-11 3-14 8"/><path className="icon-accent" {...common} d="M19 27c0-3 3-3 3-6 0-2-1-3-3-3"/></>}
@@ -26,82 +33,74 @@ function ProcessIcon({ name }: { name: string }) {
 
 export function ProcessFlow({ steps }: { steps: ProcessStep[] }) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
+  const [seen, setSeen] = useState<number[]>([]);
 
   useEffect(() => {
     const root = rootRef.current;
-    const stage = stageRef.current;
-    if (!root || !stage) return;
+    if (!root) return;
 
-    gsap.registerPlugin(ScrollTrigger);
-    const context = gsap.context(() => {
-      const items = gsap.utils.toArray<HTMLElement>("[data-process-step]");
-      const icons = gsap.utils.toArray<HTMLElement>("[data-process-icon]");
-      const fill = root.querySelector<HTMLElement>("[data-process-fill]");
-      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const items = Array.from(
+      root.querySelectorAll<HTMLElement>("[data-process-step]"),
+    );
 
-      if (reducedMotion) {
-        gsap.set(items, { opacity: 1 });
-        gsap.set(fill, { scaleX: 1 });
-        return;
-      }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const revealed = entries
+          .filter((entry) => entry.isIntersecting)
+          .map((entry) => items.indexOf(entry.target as HTMLElement))
+          .filter((index) => index >= 0);
 
-      gsap.set(items, { opacity: 0.24 });
-      gsap.set(icons, { scale: 0.78, rotation: -12 });
-      gsap.set(fill, { scaleX: 0, transformOrigin: "left center" });
+        if (!revealed.length) return;
 
-      const desktop = window.matchMedia("(min-width: 768px)").matches;
-      if (desktop) {
-        const timeline = gsap.timeline({
-          defaults: { ease: "power2.out" },
-          scrollTrigger: {
-            trigger: root,
-            start: "top top",
-            end: () => `+=${window.innerHeight * 3.6}`,
-            pin: stage,
-            scrub: 0.32,
-            anticipatePin: 1,
-            invalidateOnRefresh: true,
-          },
-        });
+        setSeen((current) => [...new Set([...current, ...revealed])]);
+        entries
+          .filter((entry) => entry.isIntersecting)
+          .forEach((entry) => observer.unobserve(entry.target));
+      },
+      { threshold: THRESHOLD },
+    );
 
-        items.forEach((item, index) => {
-          const at = index;
-          timeline
-            .to(fill, { scaleX: (index + 1) / items.length, duration: 0.42, ease: "none" }, at)
-            .to(item, { opacity: 1, duration: 0.26 }, at + 0.08)
-            .to(icons[index], { scale: 1.12, rotation: 0, duration: 0.2 }, at + 0.1)
-            .to(icons[index], { scale: 1, duration: 0.2, ease: "back.out(2)" }, at + 0.3)
-            .fromTo(item.querySelector(".icon-accent"), { strokeDasharray: 40, strokeDashoffset: 40 }, { strokeDashoffset: 0, duration: 0.3 }, at + 0.16);
-        });
-      } else {
-        items.forEach((item, index) => {
-          gsap.timeline({
-            scrollTrigger: { trigger: item, start: "top 78%", end: "bottom 45%", scrub: 0.25 },
-          })
-            .to(fill, { scaleX: (index + 1) / items.length, duration: 1, ease: "none" }, 0)
-            .to(item, { opacity: 1, duration: 0.5 }, 0)
-            .to(icons[index], { scale: 1, rotation: 0, duration: 0.5 }, 0);
-        });
-      }
-    }, root);
-
-    return () => context.revert();
+    items.forEach((item) => observer.observe(item));
+    return () => observer.disconnect();
   }, []);
 
+  const progress = seen.length ? (Math.max(...seen) + 1) / steps.length : 0;
+
   return (
-    <div ref={rootRef} className="software-process" aria-labelledby="software-process-title">
-      <div ref={stageRef} className="process-stage">
+    <div
+      ref={rootRef}
+      className="software-process"
+      aria-labelledby="software-process-title"
+    >
+      <div className="process-stage">
         <div className="process-intro">
-          <p className="section-label">Tailored software</p>
-          <h3 id="software-process-title">Built around how your business actually works.</h3>
-          <p>Scroll through how we work beside your team—from first conversation to a system that keeps getting better.</p>
+          <p className="section-label">How we build</p>
+          <h3 id="software-process-title">
+            Six steps, from first meeting to a system your team uses daily.
+          </h3>
+          <p>
+            Every project runs the same way. You know what happens next and who
+            is doing it.
+          </p>
         </div>
-        <div className="process-progress" aria-hidden="true"><span data-process-fill /></div>
+
+        <div className="process-progress" aria-hidden="true">
+          <span
+            data-process-fill
+            style={{ transform: `scaleX(${progress})` }}
+          />
+        </div>
+
         <ol className="process-rail">
           {steps.map((step, index) => (
-            <li key={step.name} data-process-step>
-              <span className="process-icon" data-process-icon><ProcessIcon name={step.icon} /></span>
+            <li
+              key={step.name}
+              data-process-step
+              data-reveal={seen.includes(index) ? "visible" : "hidden"}
+            >
+              <span className="process-icon">
+                <ProcessIcon name={step.icon} />
+              </span>
               <span className="process-number">0{index + 1}</span>
               <h4>{step.name}</h4>
               <p>{step.detail}</p>

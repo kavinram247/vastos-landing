@@ -10,8 +10,7 @@ export interface Product {
   label: string;
   description: string;
   detail: string;
-  highlights: string[];
-  outcomes: string[];
+  tags: string[];
   image: string;
   alt: string;
 }
@@ -52,21 +51,32 @@ export function ProductShowcase({ products }: { products: Product[] }) {
                 src={product.image}
                 alt={product.alt}
                 fill
-                sizes="(max-width: 767px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                sizes="(max-width: 767px) 100vw, (max-width: 1200px) 50vw, 33vw"
               />
             </div>
             <div className="product-copy">
               <span className="product-type">{product.label}</span>
               <h3>{product.name}</h3>
               <p>{product.description}</p>
-              <span className="product-explore">View product <ArrowUpRight size={15} aria-hidden="true" /></span>
+              <ul className="product-tags">
+                {product.tags.map((tag) => (
+                  <li key={tag}>{tag}</li>
+                ))}
+              </ul>
+              <span className="product-explore">
+                View product <ArrowUpRight size={15} aria-hidden="true" />
+              </span>
             </div>
           </button>
         ))}
       </div>
 
       {activeProduct && (
-        <div className="product-dialog-backdrop" role="presentation" onMouseDown={() => setActiveProduct(null)}>
+        <div
+          className="product-dialog-backdrop"
+          role="presentation"
+          onMouseDown={() => setActiveProduct(null)}
+        >
           <section
             className="product-dialog"
             role="dialog"
@@ -74,21 +84,41 @@ export function ProductShowcase({ products }: { products: Product[] }) {
             aria-labelledby="product-dialog-title"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <button className="product-dialog-close" type="button" onClick={() => setActiveProduct(null)} autoFocus aria-label="Close product details">
+            <button
+              className="product-dialog-close"
+              type="button"
+              onClick={() => setActiveProduct(null)}
+              autoFocus
+              aria-label="Close product details"
+            >
               <X size={20} aria-hidden="true" />
             </button>
             <div className="product-dialog-visual">
-              <Image src={activeProduct.image} alt={activeProduct.alt} fill sizes="(max-width: 767px) 100vw, 58vw" priority />
+              <Image
+                src={activeProduct.image}
+                alt={activeProduct.alt}
+                fill
+                sizes="(max-width: 767px) 100vw, 58vw"
+                priority
+              />
             </div>
             <div className="product-dialog-copy">
               <p className="product-dialog-label">{activeProduct.label}</p>
               <h2 id="product-dialog-title">{activeProduct.name}</h2>
               <p className="product-dialog-detail">{activeProduct.detail}</p>
-              <div className="product-dialog-columns">
-                <div><span>Core capabilities</span><ul>{activeProduct.highlights.map((item) => <li key={item}>{item}</li>)}</ul></div>
-                <div><span>Designed to deliver</span><ul>{activeProduct.outcomes.map((item) => <li key={item}>{item}</li>)}</ul></div>
-              </div>
-              <a className="button button-primary product-dialog-cta" href="#start-project" onClick={() => setActiveProduct(null)}>Discuss this product <ArrowUpRight size={16} aria-hidden="true" /></a>
+              <ul className="product-tags product-dialog-tags">
+                {activeProduct.tags.map((tag) => (
+                  <li key={tag}>{tag}</li>
+                ))}
+              </ul>
+              <a
+                className="button button-primary product-dialog-cta"
+                href="#start-project"
+                onClick={() => setActiveProduct(null)}
+              >
+                Talk about this product{" "}
+                <ArrowUpRight size={16} aria-hidden="true" />
+              </a>
             </div>
           </section>
         </div>
