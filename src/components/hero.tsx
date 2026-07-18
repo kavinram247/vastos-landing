@@ -145,6 +145,36 @@ export function Hero() {
       rafId = window.requestAnimationFrame(tick);
     };
 
+    // iOS refuses to decode a clip that has never played, so seeking an
+    // untouched element paints nothing and the hero looks empty. A muted inline
+    // video is allowed to start on its own, so playing and immediately pausing
+    // is enough to wake the decoder. Low Power Mode declines, which is what the
+    // gesture retry is for.
+    let primed = false;
+
+    const prime = () => {
+      if (primed) return;
+
+      const started = video.play();
+
+      if (started && typeof started.then === "function") {
+        started
+          .then(() => {
+            primed = true;
+            video.pause();
+            start();
+          })
+          .catch(() => {
+            // Left unprimed on purpose; the next touch tries again.
+          });
+        return;
+      }
+
+      primed = true;
+      video.pause();
+      start();
+    };
+
     // `progress` and `seeked` matter as much as scrolling here: while the clip
     // is still arriving the target is held at the buffered edge, so each new
     // chunk has to wake the loop for the playhead to catch up to the scroll.
@@ -155,12 +185,18 @@ export function Hero() {
       "progress",
       "seeked",
     ];
+    const gestures = ["touchstart", "pointerdown"];
 
     window.addEventListener("scroll", start, { passive: true });
     window.addEventListener("resize", start);
     // Restoring from the back/forward cache does not re-run the effect.
     window.addEventListener("pageshow", start);
     videoEvents.forEach((event) => video.addEventListener(event, start));
+    gestures.forEach((event) =>
+      window.addEventListener(event, prime, { passive: true }),
+    );
+
+    prime();
 
     if (video.readyState >= HTMLMediaElement.HAVE_METADATA) start();
 
@@ -171,6 +207,7 @@ export function Hero() {
       window.removeEventListener("resize", start);
       window.removeEventListener("pageshow", start);
       videoEvents.forEach((event) => video.removeEventListener(event, start));
+      gestures.forEach((event) => window.removeEventListener(event, prime));
     };
   }, []);
 

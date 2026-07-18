@@ -202,10 +202,13 @@ video {
   background: var(--ink);
 }
 
+/* Layering here is deliberately non-negative. iOS Safari promotes a video to
+   its own compositing layer, and at a negative z-index under this sticky,
+   opaque-backgrounded stage it paints behind that background and disappears. */
 .hero-video {
   position: absolute;
   inset: 0;
-  z-index: -3;
+  z-index: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -215,7 +218,7 @@ video {
 .hero-scrim {
   position: absolute;
   inset: 0;
-  z-index: -2;
+  z-index: 1;
   background:
     linear-gradient(
       90deg,
@@ -233,6 +236,7 @@ video {
 
 .hero-content {
   position: relative;
+  z-index: 2;
   display: flex;
   width: min(100%, var(--content-width));
   height: 100%;
