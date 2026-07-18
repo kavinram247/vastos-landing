@@ -46,10 +46,6 @@ export const metadata: Metadata = {
       "A real estate and construction CRM, an Unreal Engine visualisation platform, and an AI design studio.",
     images: ["/media/vastos-hero-poster.jpg"],
   },
-  icons: {
-    icon: "/brand/vastos-mark.png",
-    apple: "/brand/vastos-mark.png",
-  },
 };
 
 export default function RootLayout({
