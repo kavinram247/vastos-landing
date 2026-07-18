@@ -12,6 +12,12 @@ const SETTLE = 0.004;
 // Roughly one frame of a 24fps source. Seeking finer than this costs a decode
 // and changes nothing on screen.
 const SEEK_STEP = 0.04;
+// A seek into an unbuffered region can hang for seconds. After this long the
+// pending seek is treated as abandoned so the scrub keeps responding.
+const SEEK_TIMEOUT_MS = 250;
+// Kept back from the buffered edge, which is not reliably decodable right up
+// to its boundary.
+const BUFFER_MARGIN = 0.15;
 
 export function Hero() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -31,6 +37,32 @@ export function Hero() {
     let playhead = 0;
     let lastSeek = -1;
     let lastFrame = 0;
+    let seekStartedAt = 0;
+
+    // Browsers stop buffering a video that never plays, so the tail of the clip
+    // is often still missing. Seeking into it stalls for as long as the fetch
+    // takes, which reads as a frozen hero. Staying inside what is buffered keeps
+    // the scrub responsive and it catches up as more arrives.
+    const seekableCeiling = () => {
+      const { buffered, duration } = video;
+      if (!buffered.length) return 0;
+
+      let edge = buffered.end(buffered.length - 1);
+
+      for (let i = 0; i < buffered.length; i += 1) {
+        if (playhead >= buffered.start(i) && playhead <= buffered.end(i)) {
+          edge = buffered.end(i);
+          break;
+        }
+      }
+
+      // Once buffering has reached the end of the clip there is no leading edge
+      // to stay clear of, so the full range is usable and the exact end snap
+      // stays reachable.
+      if (edge >= duration - END_TRIM) return duration;
+
+      return Math.max(0, edge - BUFFER_MARGIN);
+    };
 
     // Where the scroll position says the playhead belongs, with no smoothing.
     const targetTime = () => {
@@ -43,13 +75,17 @@ export function Hero() {
       const end = Math.max(0, duration - END_TRIM);
       const progress = -section.getBoundingClientRect().top / travel;
 
-      if (progress <= 0) return 0;
-      if (progress >= 1) return end;
-      return progress * end;
+      const wanted =
+        progress <= 0 ? 0 : progress >= 1 ? end : progress * end;
+
+      // Never ask for a frame that has not arrived yet.
+      const ceiling = seekableCeiling();
+      return ceiling > 0 ? Math.min(wanted, ceiling) : wanted;
     };
 
     const seek = (time: number, exact: boolean) => {
       lastSeek = time;
+      seekStartedAt = performance.now();
 
       // fastSeek jumps to the nearest keyframe, which is cheap enough to keep up
       // mid-scrub but too imprecise for the two snap points.
@@ -78,8 +114,13 @@ export function Hero() {
       if (arrived) playhead = target;
 
       // Queuing seeks faster than the decoder drains them is what makes the
-      // scrub stutter, so never issue one while the last is still in flight.
-      if (!video.seeking) {
+      // scrub stutter, so hold off while one is in flight. A seek that has not
+      // landed within the timeout is treated as abandoned rather than blocking
+      // the scrub for as long as the network takes.
+      const seekStalled =
+        video.seeking && performance.now() - seekStartedAt > SEEK_TIMEOUT_MS;
+
+      if (!video.seeking || seekStalled) {
         if (Math.abs(playhead - lastSeek) >= SEEK_STEP) {
           seek(playhead, false);
         } else if (arrived && lastSeek !== target) {
@@ -104,9 +145,22 @@ export function Hero() {
       rafId = window.requestAnimationFrame(tick);
     };
 
+    // `progress` and `seeked` matter as much as scrolling here: while the clip
+    // is still arriving the target is held at the buffered edge, so each new
+    // chunk has to wake the loop for the playhead to catch up to the scroll.
+    const videoEvents = [
+      "loadedmetadata",
+      "loadeddata",
+      "canplay",
+      "progress",
+      "seeked",
+    ];
+
     window.addEventListener("scroll", start, { passive: true });
     window.addEventListener("resize", start);
-    video.addEventListener("loadedmetadata", start);
+    // Restoring from the back/forward cache does not re-run the effect.
+    window.addEventListener("pageshow", start);
+    videoEvents.forEach((event) => video.addEventListener(event, start));
 
     if (video.readyState >= HTMLMediaElement.HAVE_METADATA) start();
 
@@ -115,7 +169,8 @@ export function Hero() {
       if (rafId) window.cancelAnimationFrame(rafId);
       window.removeEventListener("scroll", start);
       window.removeEventListener("resize", start);
-      video.removeEventListener("loadedmetadata", start);
+      window.removeEventListener("pageshow", start);
+      videoEvents.forEach((event) => video.removeEventListener(event, start));
     };
   }, []);
 
