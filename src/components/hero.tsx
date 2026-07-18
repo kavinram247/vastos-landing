@@ -3,6 +3,15 @@
 import { useEffect, useRef } from "react";
 
 const END_TRIM = 0.05;
+// Higher converges on the scroll position faster; lower glides more. Applied
+// per second so the feel does not change with display refresh rate.
+const SMOOTHING = 11;
+// Below this the playhead is treated as having arrived, which is what lets the
+// top and bottom land on exact values instead of creeping toward them forever.
+const SETTLE = 0.004;
+// Roughly one frame of a 24fps source. Seeking finer than this costs a decode
+// and changes nothing on screen.
+const SEEK_STEP = 0.04;
 
 export function Hero() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -18,15 +27,32 @@ export function Hero() {
     video.pause();
 
     let rafId = 0;
-    let appliedTime = -1;
+    let running = false;
+    let playhead = 0;
+    let lastSeek = -1;
+    let lastFrame = 0;
 
-    // `exact` bypasses fastSeek, which snaps to the nearest keyframe. The top and
-    // bottom of the track have to land on their precise values, so they seek via
-    // currentTime while the scrub in between stays on the cheaper path.
+    // Where the scroll position says the playhead belongs, with no smoothing.
+    const targetTime = () => {
+      const { duration } = video;
+      if (!Number.isFinite(duration) || duration <= 0) return null;
+
+      const travel = section.offsetHeight - window.innerHeight;
+      if (travel <= 0) return null;
+
+      const end = Math.max(0, duration - END_TRIM);
+      const progress = -section.getBoundingClientRect().top / travel;
+
+      if (progress <= 0) return 0;
+      if (progress >= 1) return end;
+      return progress * end;
+    };
+
     const seek = (time: number, exact: boolean) => {
-      if (Math.abs(time - appliedTime) < 0.01) return;
-      appliedTime = time;
+      lastSeek = time;
 
+      // fastSeek jumps to the nearest keyframe, which is cheap enough to keep up
+      // mid-scrub but too imprecise for the two snap points.
       if (!exact && typeof video.fastSeek === "function") {
         video.fastSeek(time);
         return;
@@ -35,47 +61,61 @@ export function Hero() {
       video.currentTime = time;
     };
 
-    const render = () => {
-      rafId = 0;
+    const tick = (now: number) => {
+      const elapsed = lastFrame ? Math.min((now - lastFrame) / 1000, 0.05) : 0;
+      lastFrame = now;
 
-      const { duration } = video;
-      if (!Number.isFinite(duration) || duration <= 0) return;
+      const target = targetTime();
 
-      const travel = section.offsetHeight - window.innerHeight;
-      if (travel <= 0) return;
-
-      const end = Math.max(0, duration - END_TRIM);
-      const progress = -section.getBoundingClientRect().top / travel;
-
-      if (progress <= 0) {
-        seek(0, true);
+      if (target === null) {
+        rafId = window.requestAnimationFrame(tick);
         return;
       }
 
-      if (progress >= 1) {
-        seek(end, true);
+      playhead += (target - playhead) * (1 - Math.exp(-SMOOTHING * elapsed));
+
+      const arrived = Math.abs(target - playhead) < SETTLE;
+      if (arrived) playhead = target;
+
+      // Queuing seeks faster than the decoder drains them is what makes the
+      // scrub stutter, so never issue one while the last is still in flight.
+      if (!video.seeking) {
+        if (Math.abs(playhead - lastSeek) >= SEEK_STEP) {
+          seek(playhead, false);
+        } else if (arrived && lastSeek !== target) {
+          // Final correction, so a settled playhead sits on the exact value.
+          seek(target, true);
+        }
+      }
+
+      if (arrived && lastSeek === target) {
+        running = false;
+        lastFrame = 0;
         return;
       }
 
-      seek(progress * end, false);
+      rafId = window.requestAnimationFrame(tick);
     };
 
-    const schedule = () => {
-      if (rafId) return;
-      rafId = window.requestAnimationFrame(render);
+    const start = () => {
+      if (running) return;
+      running = true;
+      lastFrame = 0;
+      rafId = window.requestAnimationFrame(tick);
     };
 
-    window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
-    video.addEventListener("loadedmetadata", schedule);
+    window.addEventListener("scroll", start, { passive: true });
+    window.addEventListener("resize", start);
+    video.addEventListener("loadedmetadata", start);
 
-    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) schedule();
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) start();
 
     return () => {
+      running = false;
       if (rafId) window.cancelAnimationFrame(rafId);
-      window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
-      video.removeEventListener("loadedmetadata", schedule);
+      window.removeEventListener("scroll", start);
+      window.removeEventListener("resize", start);
+      video.removeEventListener("loadedmetadata", start);
     };
   }, []);
 
