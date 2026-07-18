@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { ProjectInquiryEmail } from "@/emails/project-inquiry-email";
 import { projectInquirySchema } from "@/lib/project-inquiry";
 import { getResend } from "@/lib/resend";
+import { appendInquiry } from "@/lib/sheets";
 
 export const runtime = "nodejs";
 
@@ -85,6 +86,17 @@ export async function POST(request: Request) {
       { status: 429 },
     );
   }
+
+  // Runs once the response has been sent, so the spreadsheet write cannot slow
+  // the form down or fail the submission. Registered before the send so a
+  // legitimate enquiry is still recorded when email delivery fails.
+  after(async () => {
+    try {
+      await appendInquiry(inquiry);
+    } catch (error) {
+      console.error("Project enquiry sheet append failed", error);
+    }
+  });
 
   try {
     const resend = getResend();
