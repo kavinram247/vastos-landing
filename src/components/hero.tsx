@@ -235,13 +235,7 @@ export function Hero() {
         <div className="hero-scrim" aria-hidden="true" />
 
         <div className="hero-content">
-          <p className="hero-label">Software company</p>
-          <h1>Software that runs your business better.</h1>
-          <p className="hero-body">
-            We build three platforms: a CRM for real estate and construction
-            teams, an Unreal Engine tool for interior visualisation, and an AI
-            studio that turns a floor plan into renders and layouts.
-          </p>
+          <h1>Engineering the Future Without Limits.</h1>
           <div className="hero-actions">
             <a className="button button-primary" href="#start-project">
               Start a project

@@ -74,14 +74,14 @@ export function ProcessFlow({ steps }: { steps: ProcessStep[] }) {
     >
       <div className="process-stage">
         <div className="process-intro">
-          <p className="section-label">How we build</p>
-          <h3 id="software-process-title">
-            Six steps, from first meeting to a system your team uses daily.
-          </h3>
-          <p>
-            Every project runs the same way. You know what happens next and who
-            is doing it.
+          <p className="section-label">
+            we also build customized solutions for your business
           </p>
+          <h3 id="software-process-title">
+            Solutions that adapt to your business, not solutions that force
+            you to change.
+          </h3>
+          <p>your process, our technology</p>
         </div>
 
         <div className="process-progress" aria-hidden="true">
